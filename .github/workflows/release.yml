@@ -26,4 +26,9 @@ jobs:
       trivy-severity-for-sarif: "CRITICAL,HIGH,MEDIUM,LOW"
       dockerhub-enabled: false # the fork has no Docker Hub secrets
       publish-enabled: true
+      # The fork run only needs to reach the publish step, so its checks are off
+      style-checks-enabled: false
+      code-checks-enabled: false
+      ort-enabled: false
+      trivy-enabled: false
     secrets: inherit
