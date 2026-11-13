@@ -11,6 +11,7 @@ include 'server'
 include 'storage'
 include 'credentials'
 include 'plugin-api'
+project(':plugin-api').name = 'aidial-core-plugin-api'
 include 'plugin-samples'
 include 'openapi-generator'
 

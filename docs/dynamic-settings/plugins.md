@@ -110,6 +110,39 @@ DIAL Core loads plugin code once, at start, from the jars in the directory named
 
 DIAL Core does not start when a jar in the directory cannot be opened, when its plugin code cannot be created, when two jars register the same plugin class (an old jar left beside its new version), or when two plugin classes declare the same type. New plugin code needs a restart of DIAL Core; the `plugins` entries and their settings reload with the rest of the config.
 
+### Building a plugin outside this repository
+
+DIAL Core publishes the `plugin-api` module to the GitHub Packages Maven registry of this repository as `com.epam.aidial:aidial-core-plugin-api`. Its version is the version of DIAL Core the plugin is built for (a plugin jar is built for one DIAL Core version, see the preview note above). The release workflow publishes it with each build:
+
+* `X.Y.Z`: the DIAL Core release `X.Y.Z`.
+* `X.Y.0-rc.N`: the release candidate `X.Y.0-rc.N`.
+* `X.Y.0-SNAPSHOT`: a rolling version, replaced by each build of the `development` branch before the release `X.Y.0`. It is not a fixed build, so use it to try what is coming, not to ship.
+
+A Gradle build of a plugin:
+
+```groovy
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/epam/ai-dial-core")
+        credentials {
+            username = providers.gradleProperty("gpr.user").getOrNull() ?: System.getenv("GPR_USERNAME")
+            password = providers.gradleProperty("gpr.key").getOrNull() ?: System.getenv("GPR_PASSWORD")
+        }
+    }
+    mavenCentral()
+}
+
+dependencies {
+    // DIAL Core provides the plugin API, Vert.x and Jackson at run time, so the jar must not carry them
+    compileOnly("com.epam.aidial:aidial-core-plugin-api:<DIAL Core version>")
+}
+```
+
+* **A token is needed, even though the package is public.** The GitHub Packages Maven registry serves nothing without one. Use a personal access token (classic) with the `read:packages` scope; in a GitHub Actions workflow of a repository that was granted access to the package, the workflow's `GITHUB_TOKEN` works.
+* **Vert.x and Jackson come with it.** Their types (`Future`, `Buffer`, `ReadStream`, `ObjectNode`) are in the signatures of the plugin API, so the artifact brings both libraries to the compile classpath; the plugin does not declare them.
+* **Java 21.** The artifact is compiled for Java 21; build the plugin with a JDK 21 or newer.
+* **Maven.** The artifact is a plain Maven artifact. A Maven build needs the same repository and a `read:packages` token in `settings.xml`, and has to enable snapshots for that repository to use a `-SNAPSHOT` version.
+
 ## Configuration API
 
 Plugins live in the `platform` bucket and need the admin role, like the other config entities:
