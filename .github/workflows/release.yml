@@ -16,11 +16,14 @@ concurrency:
 
 jobs:
   release:
-    uses: epam/ai-dial-ci/.github/workflows/java_release.yml@4.13.2
+    # Polygon only (never for the epam PR): the shared workflow comes from the nepalevov/ci fork, whose main is the test ref
+    uses: nepalevov/ci/.github/workflows/java_release.yml@main
     with:
       promote: ${{ github.event_name == 'workflow_dispatch' && inputs.promote }}
-      platforms: "linux/amd64,linux/arm64"
+      platforms: "linux/amd64"
       java-version: 21
       trivy-severity: "CRITICAL,HIGH,MEDIUM,LOW"
       trivy-severity-for-sarif: "CRITICAL,HIGH,MEDIUM,LOW"
+      dockerhub-enabled: false # the fork has no Docker Hub secrets
+      publish-enabled: true
     secrets: inherit

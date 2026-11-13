@@ -59,7 +59,7 @@ publishing {
     repositories {
         maven {
             name = 'GitHubPackages'
-            url = uri('https://maven.pkg.github.com/epam/ai-dial-core')
+            url = uri('https://maven.pkg.github.com/nepalevov/ai-dial-core') // polygon only: the fork's own registry
             credentials {
                 username = project.findProperty('gpr.user') ?: System.getenv('GPR_USERNAME')
                 password = project.findProperty('gpr.key') ?: System.getenv('GPR_PASSWORD')
