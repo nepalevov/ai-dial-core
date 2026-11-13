@@ -40,8 +40,7 @@ any other module, a compatibility rule for plugins, any change to what Core serv
 ### D1. The publish step lives in the shared `java_release.yml`, opt-in
 
 A step after `build_docker` and before `publish_tag_release`, guarded by a new input `publish-enabled` (boolean,
-default `false`, so the other Java repositories are unaffected), like `node_release.yml`. A second input,
-`publish-package-names` (newline list of `group.artifactId`), is used only by the existence check (D6). The step runs
+default `false`, so the other Java repositories are unaffected), like `node_release.yml`. The step runs
 `./gradlew publish` with `GPR_USERNAME=${{ github.actor }}` and `GPR_PASSWORD=${{ secrets.GITHUB_TOKEN }}`, the names
 the root `build.gradle:27-36` already reads. Publishing after `build_docker` means a failed Trivy scan or image build
 publishes nothing; publishing before the tag means a tag implies a published artifact.
@@ -102,18 +101,20 @@ The Maven registry is repository-scoped, so the workflow's token may publish pac
 Basic-auth user name. A robot token would also publish, but it widens exposure and its publishes raise
 `registry_package` events, which `deploy-development.yml` listens to.
 
-### D6. An existing rc or stable version is skipped, anything else fails
+### D6. No existence check: a second upload of an rc or stable version fails the run
 
-On non-`development` branches the step first lists the package's versions
-(`GET /orgs/{owner}/packages/maven/{package}/versions`) and skips the publish when `next-version` is there, as
-`node_release.yml` does with `npm view`. The tag is created after the publish, so a rerun after a cancelled run
-(the workflow uses `cancel-in-progress`) computes the same version. GitHub Packages answers a second upload of a
-non-SNAPSHOT version with `409 Conflict` (community reports only; GitHub's documentation does not say). A SNAPSHOT is
-always republished. Any other failure fails the run, because Gradle stops at the first rejected file and a partial
-version has to be deleted by hand.
+The step just runs `./gradlew publish`. GitHub Packages answers a second upload of a non-SNAPSHOT version with
+`409 Conflict` (community reports only; GitHub's documentation does not say), and a SNAPSHOT is accepted again and
+again. The tag is created after the publish, so a rerun after a cancelled or failed run on a `release-*` branch
+computes the same version and fails on that `409`; the maintainer deletes the version from the package page and
+reruns, or fixes forward with the next rc. A failed publish also means Gradle stopped at the first rejected file, so a
+partial version is possible and has to be deleted by hand. The failure is loud and the cleanup is rare, which the
+maintainers accept for the simplicity.
 
-Rejected: treating a `409` as success (can hide a partial upload and a spurious `409`); no handling (the keycloak
-choice; a rerun then needs manual cleanup).
+Rejected: a pre-check of the package's versions through the REST API that skips a published version (as
+`node_release.yml` does with `npm view` and Python with `--skip-existing`): it needed a second input
+(`publish-package-names`), a script in the shared workflow, and rested on `GITHUB_TOKEN` being allowed to list
+versions; treating a `409` as success (can hide a partial upload and a spurious `409`).
 
 ### D7. Foundation for Maven Central, nothing more
 
@@ -137,11 +138,12 @@ server distribution's `lib/`.
 
 ## Risks / Trade-offs
 
-- [The `409` behaviour and the existence check rest on community reports and on `GITHUB_TOKEN` being able to list
-  package versions] → the fork dry run (tasks.md) runs both; D6 fails loudly if the check is wrong.
+- [The `409` behaviour rests on community reports] → the fork dry run (tasks.md) re-runs an rc publish and shows what
+  GitHub answers; the run fails loudly either way.
 - [GitHub Packages may reject the `-rc.N` form] → the same dry run; GitHub's documentation restricts only the owner
   and the artifactId.
-- [A cancelled run can leave a partial rc upload] → delete the version in the package settings, rerun.
+- [A cancelled or failed run (the workflow uses `cancel-in-progress`) can leave a published or partial rc, and the rerun
+  then fails on the `409`] → delete the version in the package settings, rerun (D6).
 - [Anyone reading the package needs a token, even for a public package (documented limit of the registry)] → the docs
   say so; Maven Central is the later answer for plugin authors outside the organisation.
 - [The root build excludes `netty-transport-native-epoll` from every configuration, and the exclusion lands in the
@@ -159,8 +161,7 @@ server distribution's `lib/`.
 
 1. Release `epam/ai-dial-ci` with the opt-in input (planned 4.14.0).
 2. Merge the Core change without the `release.yml` commit; nothing publishes yet.
-3. Merge the `release.yml` commit (pin the new tag, `publish-enabled: true`,
-   `publish-package-names: com.epam.aidial.aidial-core-plugin-api`) only after step 1.
+3. Merge the `release.yml` commit (pin the new tag, `publish-enabled: true`) only after step 1.
 4. The first `development` push publishes a SNAPSHOT; the first `release-*` push publishes an rc.
 
 Rollback: set `publish-enabled: false` or revert the pin; published versions can be deleted from the package page.

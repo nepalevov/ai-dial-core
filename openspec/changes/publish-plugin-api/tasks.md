@@ -45,31 +45,36 @@ the `epam/ai-dial-ci` repository (its own PR), group 4 is the last Core commit.
 
 ## 3. `epam/ai-dial-ci` (separate repository and PR)
 
-- [x] 3.1 `.github/workflows/java_release.yml`: inputs `publish-enabled` (boolean, default `false`) and
-  `publish-package-names`; the publish step between `build_docker` and `publish_tag_release` (existence check on
-  non-`development` branches, then `./gradlew publish` with `GPR_USERNAME` and `GPR_PASSWORD` from `github.actor` and
-  `GITHUB_TOKEN`) (design D1, D5, D6). Verify the file parses as YAML, `bash -n` passes on the step's script, and the
-  script run against a stubbed `gh` skips when the version is listed and publishes when it is not.
+- [x] 3.1 `.github/workflows/java_release.yml`: input `publish-enabled` (boolean, default `false`); the publish step
+  between `build_docker` and `publish_tag_release` runs `./gradlew publish` with `GPR_USERNAME` and `GPR_PASSWORD` from
+  `github.actor` and `GITHUB_TOKEN`; no existence check, a second upload of an rc or stable version fails the run
+  (design D1, D5, D6). Verify the file parses as YAML (done).
 - [x] 3.2 Same file: `is-release` and `is-release-candidate` added to the `calculate_version` outputs with a
   `# TODO: huh` comment (design D8). Verify the output names match `actions/semantic_versioning/action.yml`.
-- [x] 3.3 `README.md` "Java (gradle)": document the two inputs, the `maven-publish` requirement and the credential
-  names. Verify the documented snippet matches the input names of 3.1.
-- [ ] 3.4 Commit in a local clone of `epam/ai-dial-ci` on a branch; update self-dependencies with
-  `update-self-dependencies.sh`. Creating the repository fork, pushing and opening the PR wait for the user's go-ahead
-  (deferred: needs the user's approval to push to a remote).
+- [x] 3.3 `README.md` "Java (gradle)": document the input, the `maven-publish` requirement, the credential names and
+  the rerun behaviour. Verify the documented snippet matches the input name of 3.1 (done; no mention of the removed
+  `publish-package-names` is left).
+- [x] 3.4 The workflow change is in the fork `nepalevov/ci` (checkout `C:\Projects\GitHub\nepalevov\ci`): a
+  `chore: sync with upstream` commit and a `feat:` commit, self-references set with its `fork.sh` helper, pushed to
+  its `main`, which is the test ref of the polygon below.
+- [ ] 3.5 The `epam/ai-dial-ci` PR: self-dependencies updated with `update-self-dependencies.sh`, then push and open
+  the PR (deferred: needs the user's go-ahead to push to the `epam` repository).
 
 ## 4. Core release workflow (last commit, merges after ai-dial-ci is released)
 
 - [ ] 4.1 `.github/workflows/release.yml`: pin the new `ai-dial-ci` tag (planned 4.14.0), add
-  `publish-enabled: true` and `publish-package-names: com.epam.aidial.aidial-core-plugin-api`. Verify the diff is
-  these lines only, in a commit of its own (deferred: the tag does not exist until ai-dial-ci is released).
+  `publish-enabled: true`. Verify the diff is these lines only, in a commit of its own (deferred: the tag does not
+  exist until ai-dial-ci is released). The polygon branch carries its own variant of this edit, pointing at
+  `nepalevov/ci@main`; it is never merged into `feat/issue-2261`.
 
 ## 5. Integration checks
 
-- [ ] 5.1 Dry run in a throwaway fork of `ai-dial-core` calling the `ai-dial-ci` branch: a `development` push
-  publishes `X.Y.0-SNAPSHOT` and a second push overwrites it; a `release-X.Y` push publishes `X.Y.0-rc.0` and a rerun
-  skips instead of failing; the Docker, tag and release steps still pass; a scratch project resolves the artifact with
-  a read-only token (deferred: needs the user's approval, it publishes to the fork's packages).
+- [ ] 5.1 Dry run in the fork `nepalevov/ai-dial-core` (checkout `C:\Projects\GitHub\nepalevov\ai-dial-core`, branch
+  `polygon/publish-plugin-api`, which calls `nepalevov/ci@main`): a `development` push publishes `X.Y.0-SNAPSHOT` and a
+  second push overwrites it; a `release-X.Y` push publishes `X.Y.0-rc.0`, and a rerun fails on the `409` as designed;
+  the Docker, tag and release steps still pass; a scratch project resolves the artifact with a read-only token. The
+  fork, the polygon branch, the `ACTIONS_BOT_TOKEN` secret and the ci test ref are ready; no run has been started
+  (deferred: waits for the user to trigger it, it publishes to the fork's packages).
 - [ ] 5.2 After merge: the first `development` push of Core shows a SNAPSHOT under the repository's packages, the first
   `release-*` push an rc (deferred: needs the merge and the ai-dial-ci release).
 
